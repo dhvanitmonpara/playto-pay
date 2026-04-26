@@ -1,33 +1,68 @@
 services:
-  backend:
+  api:
+    container_name: playto-api
     build:
       context: ./server
+      dockerfile: Dockerfile
     command: >
       sh -c "python manage.py migrate &&
              python manage.py seed_demo &&
              gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 2 --timeout 60"
     env_file:
-      - .env.prod
-    ports:
-      - "8000:8000"
+      - .env.production
+    expose:
+      - "8000"
     restart: unless-stopped
+    mem_limit: 512m
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz')\""
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - caddy_net
+      - backend
 
   celery:
+    container_name: playto-celery
     build:
       context: ./server
+      dockerfile: Dockerfile
     command: celery -A config worker -l info --concurrency=1
     env_file:
-      - .env.prod
-    restart: unless-stopped
+      - .env.production
     depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    mem_limit: 256m
+    networks:
       - backend
 
   celery-beat:
+    container_name: playto-celery-beat
     build:
       context: ./server
+      dockerfile: Dockerfile
     command: celery -A config beat -l info
     env_file:
-      - .env.prod
-    restart: unless-stopped
+      - .env.production
     depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    mem_limit: 128m
+    networks:
       - backend
+
+networks:
+  caddy_net:
+    external: true
+
+  backend:
+    internal: true
