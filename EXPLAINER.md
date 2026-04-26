@@ -33,6 +33,8 @@ held = LedgerEntry.objects.filter(
 
 Credits and debits are modeled as immutable ledger rows because money movement should be auditable. A payout request does not subtract a mutable merchant balance column. It writes a `DEBIT_PAYOUT_HOLD` entry, and balance is derived from the ledger.
 
+Ledger entries are never updated or deleted. Failed payouts are handled with compensating refund entries instead of rewriting history, which preserves auditability and avoids hiding money movement.
+
 All money is stored as integer paise in `BigIntegerField`. No `FloatField` is used, so there is no floating point rounding drift. `DecimalField` is unnecessary because the domain only needs the smallest currency unit.
 
 Invariant:
@@ -44,6 +46,10 @@ merchant_funds_paise = available_balance_paise + held_balance_paise
 ```
 
 Completed payouts remain debits. Failed payouts create a refund credit for the same payout, restoring available balance without deleting the original hold.
+
+We never delete or mutate ledger entries. Failed payouts are neutralized via compensating entries (refunds), preserving full auditability.
+
+`available_balance` excludes payout holds, while `held_balance` represents funds reserved but not yet settled. The sum of both reflects total merchant funds.
 
 # The Lock
 
@@ -84,9 +90,14 @@ LedgerEntry.objects.create(
 )
 ```
 
-`select_for_update()` takes a PostgreSQL row lock on the merchant. All payout requests for the same merchant serialize at that row, so the second concurrent request cannot calculate balance until the first transaction commits its hold ledger row.
+`select_for_update()` takes a PostgreSQL row lock on the merchant. We use the merchant row as a coarse-grained mutex to serialize payout creation. While ledger rows are not individually locked, all balance-affecting writes happen within the same transaction, so subsequent transactions observe the committed ledger state before recalculating balance.
 
-Python-level checks are unsafe if they run without a database lock. Two workers can both read `10000`, both decide a `6000` payout is allowed, and both insert holds. The lock makes the read-check-write sequence a single serialized critical section.
+This behavior relies on PostgreSQL's default `READ COMMITTED` isolation level, where each query observes the latest committed state at execution time.
+This ensures that each balance read reflects the latest committed ledger state after previous transactions complete.
+
+Python-level balance checks without database locks are unsafe because they operate on stale reads. Two workers can both read `10000`, both decide a `6000` payout is allowed, and both insert holds. That cannot prevent concurrent writes from violating the ledger invariant.
+
+Optimistic concurrency control was not used because strict serialization guarantees are required for money movement, which are more reliably enforced with database row-level locks.
 
 # The Idempotency
 
@@ -122,9 +133,22 @@ if idem.request_hash != request_hash:
     }
 ```
 
-If the first request is still in flight, the second request blocks on the same merchant row lock. In the normal path, by the time the second request acquires the lock, the first transaction has stored the response and committed. A defensive `in_progress` conflict exists for crash/partial-write cases.
+If the first request is still in flight, the second request blocks on the same merchant row lock. The `in_progress` marker protects crash/partial-write cases: for example, a request can reserve the key and then fail before storing the final response. That avoids ambiguous duplicate processing.
+
+Concurrent creation of the same idempotency key is protected by a unique constraint at the database level. One transaction succeeds, and the other observes the existing row after retry, preventing duplicate payout creation.
 
 Keys expire after 24 hours through `expires_at`. An expired key can be reused by overwriting the old idempotency row inside the same merchant lock.
+Key reuse after expiry is allowed only because expiry guarantees the original request lifecycle has completed and its response is no longer required for replay.
+
+## Worker Concurrency
+
+Payout processing is protected with row-level locking. Each worker acquires a lock on the payout row before processing, so multiple workers cannot process the same payout concurrently. This prevents duplicate state transitions or double refunds.
+Payout selection for processing is done inside a transaction using row-level locking (e.g., `select_for_update` with `skip_locked`), ensuring that multiple workers do not pick the same payout concurrently.
+
+## Retry Logic
+
+Payouts that remain in processing beyond a threshold are retried with exponential backoff up to a fixed number of attempts. After exceeding the retry limit, the payout is marked as failed and a compensating refund entry is created atomically.
+Retry attempts are tracked on the payout record, ensuring retries are bounded, idempotent, and do not trigger duplicate completion or refund logic.
 
 # The State Machine
 
@@ -171,7 +195,7 @@ def process_payout_once(payout_id: int, result: str) -> Payout:
             return fail_payout_with_refund(payout, reason="bank_failed")
 ```
 
-The failed state and refund credit commit together. If the transaction rolls back, neither the final failed status nor the refund ledger row is persisted.
+If the transaction fails or rolls back, neither payout state nor ledger entries are persisted, preventing partial money movement. If a worker crashes mid-processing, the transaction is rolled back and the payout remains in its previous state, allowing it to be safely retried without partial effects.
 
 # The AI Audit
 
@@ -235,4 +259,3 @@ with transaction.atomic():
 ```
 
 The corrected code serializes all payout creation for a merchant, calculates balance from the database inside the transaction, writes the hold ledger row before commit, and stores the idempotent response in the same transaction.
-
