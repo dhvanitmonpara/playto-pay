@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from urllib.parse import urlparse, unquote
+from urllib.parse import parse_qs, unquote, urlparse
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -57,29 +57,42 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "")
-if DATABASE_URL:
-    parsed_db = urlparse(DATABASE_URL)
-    DATABASES = {
-        "default": {
+def _database_config_from_url(database_url: str) -> dict[str, object]:
+    parsed_db = urlparse(database_url)
+    scheme = parsed_db.scheme.split("+", 1)[0]
+    if scheme in {"postgres", "postgresql"}:
+        options = {
+            key: values[0] if len(values) == 1 else values
+            for key, values in parse_qs(parsed_db.query).items()
+        }
+        return {
             "ENGINE": "django.db.backends.postgresql",
             "NAME": parsed_db.path.lstrip("/"),
             "USER": unquote(parsed_db.username or ""),
             "PASSWORD": unquote(parsed_db.password or ""),
             "HOST": parsed_db.hostname or "",
             "PORT": parsed_db.port or "",
+            "OPTIONS": options,
         }
-    }
-elif os.environ.get("DB_HOST"):
+    if scheme == "sqlite":
+        sqlite_path = unquote(parsed_db.path or "")
+        if parsed_db.netloc:
+            sqlite_path = f"/{parsed_db.netloc}{sqlite_path}"
+        elif sqlite_path.startswith("//"):
+            sqlite_path = sqlite_path[1:]
+        if not sqlite_path:
+            sqlite_path = str(BASE_DIR / "db.sqlite3")
+        return {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": sqlite_path,
+        }
+    raise ValueError(f"Unsupported DATABASE_URL scheme: {parsed_db.scheme}")
+
+
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
+if DATABASE_URL:
     DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": os.environ["DB_NAME"],
-            "USER": os.environ["DB_USER"],
-            "PASSWORD": os.environ["DB_PASSWORD"],
-            "HOST": os.environ["DB_HOST"],
-            "PORT": os.environ.get("DB_PORT", "5432"),
-        }
+        "default": _database_config_from_url(DATABASE_URL),
     }
 else:
     DATABASES = {

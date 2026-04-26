@@ -1,0 +1,33 @@
+services:
+  backend:
+    build:
+      context: ./server
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py seed_demo &&
+             gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 2 --timeout 60"
+    env_file:
+      - .env.prod
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  celery:
+    build:
+      context: ./server
+    command: celery -A config worker -l info --concurrency=1
+    env_file:
+      - .env.prod
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+  celery-beat:
+    build:
+      context: ./server
+    command: celery -A config beat -l info
+    env_file:
+      - .env.prod
+    restart: unless-stopped
+    depends_on:
+      - backend

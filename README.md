@@ -40,11 +40,7 @@ Backend:
 ```bash
 DEBUG=1
 SECRET_KEY=local-dev-secret
-DB_NAME=playto_payments
-DB_USER=playto
-DB_PASSWORD=playto
-DB_HOST=postgres
-DB_PORT=5432
+DATABASE_URL=postgresql://playto:playto@postgres:5432/playto_payments
 CELERY_BROKER_URL=redis://redis:6379/0
 CELERY_RESULT_BACKEND=redis://redis:6379/0
 CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
@@ -69,7 +65,7 @@ python manage.py seed_demo
 python manage.py runserver
 ```
 
-Without `DB_HOST` or `DATABASE_URL`, the backend uses local SQLite for quick development. Use Postgres for the concurrency test and any real payout validation.
+Without `DATABASE_URL`, the backend uses local SQLite for quick development. Use Postgres for the concurrency test and any real payout validation.
 
 ## Run Frontend Without Docker
 
@@ -165,5 +161,4 @@ For a simple deployment, run these process types:
 - Scheduler: `celery -A config beat -l info`
 - Frontend: `npm run build`, then serve `client/dist`
 
-Set `DATABASE_URL` or the `DB_*` variables, `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`, `SECRET_KEY`, `ALLOWED_HOSTS`, and `CORS_ALLOWED_ORIGINS` on the platform.
-
+Set `DATABASE_URL`, `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`, `SECRET_KEY`, `ALLOWED_HOSTS`, and `CORS_ALLOWED_ORIGINS` on the platform.
