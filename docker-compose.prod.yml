@@ -33,7 +33,7 @@ services:
     build:
       context: ./server
       dockerfile: Dockerfile
-    command: celery -A config worker -l info --concurrency=1
+    command: celery -A config worker -l warning --concurrency=1 --pool=solo
     env_file:
       - .env.production
     depends_on:
@@ -41,6 +41,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     mem_limit: 256m
+    cpus: "0.25"
     networks:
       - backend
 
@@ -49,7 +50,7 @@ services:
     build:
       context: ./server
       dockerfile: Dockerfile
-    command: celery -A config beat -l info
+    command: celery -A config beat -l warning
     env_file:
       - .env.production
     depends_on:
@@ -57,6 +58,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     mem_limit: 128m
+    cpus: "0.15"
     networks:
       - backend
 

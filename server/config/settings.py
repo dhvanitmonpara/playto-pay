@@ -168,10 +168,10 @@ PAYOUTS_AUTO_ENQUEUE = os.environ.get("PAYOUTS_AUTO_ENQUEUE", "1") == "1"
 CELERY_BEAT_SCHEDULE = {
     "pick-pending-payouts": {
         "task": "apps.payouts.tasks.process_pending_payouts",
-        "schedule": 5.0,
+        "schedule": 30.0,
     },
     "retry-stale-processing-payouts": {
         "task": "apps.payouts.tasks.retry_stale_processing_payouts",
-        "schedule": 10.0,
+        "schedule": 60.0,
     },
 }
