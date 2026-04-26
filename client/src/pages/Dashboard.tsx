@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
+import { toast } from 'sonner'
 import {
   createPayout,
   getBalance,
@@ -31,6 +32,14 @@ const statusClass: Record<Payout['status'], string> = {
   failed: 'bg-rose-100 text-rose-800',
 }
 
+function showWarning(message: string) {
+  toast.warning(message, { id: message })
+}
+
+function showSuccess(message: string) {
+  toast.success(message, { id: message })
+}
+
 export function Dashboard() {
   const [merchants, setMerchants] = useState<Merchant[]>([])
   const [merchantId, setMerchantId] = useState<number | null>(null)
@@ -39,7 +48,6 @@ export function Dashboard() {
   const [payouts, setPayouts] = useState<Payout[]>([])
   const [amountRupees, setAmountRupees] = useState('')
   const [bankAccountId, setBankAccountId] = useState<number | null>(null)
-  const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
 
   const merchant = merchants.find((item) => item.id === merchantId) ?? null
@@ -51,7 +59,9 @@ export function Dashboard() {
         setMerchantId(items[0].id)
         setBankAccountId(items[0].bank_accounts[0]?.id ?? null)
       }
-    }).catch((error) => setMessage(error.message))
+    }).catch((error) => {
+      if (error instanceof Error) showWarning(error.message)
+    })
   }, [])
 
   useEffect(() => {
@@ -72,7 +82,7 @@ export function Dashboard() {
           setPayouts(nextPayouts)
         }
       } catch (error) {
-        if (error instanceof Error) setMessage(error.message)
+        if (error instanceof Error) showWarning(error.message)
       }
     }
 
@@ -94,7 +104,6 @@ export function Dashboard() {
 
     const amount_paise = Math.round(Number(amountRupees) * 100)
     setLoading(true)
-    setMessage('')
     try {
       await createPayout(merchantId, { amount_paise, bank_account_id: bankAccountId })
       setAmountRupees('')
@@ -106,9 +115,9 @@ export function Dashboard() {
       setBalance(nextBalance)
       setLedger(nextLedger)
       setPayouts(nextPayouts)
-      setMessage('Payout request created.')
+      showSuccess('Payout request created.')
     } catch (error) {
-      if (error instanceof Error) setMessage(error.message)
+      if (error instanceof Error) showWarning(error.message)
     } finally {
       setLoading(false)
     }
@@ -142,12 +151,6 @@ export function Dashboard() {
             </label>
           </div>
         </header>
-
-        {message && (
-          <div className="rounded-2xl border-2 border-slate-900 bg-white px-4 py-3 font-semibold shadow-[4px_4px_0_#0f172a]">
-            {message}
-          </div>
-        )}
 
         <section className="grid gap-4 md:grid-cols-4">
           <BalanceCard label="Available" value={balance ? inr(balance.available_balance_paise) : '-'} />
