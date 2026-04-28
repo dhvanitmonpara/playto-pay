@@ -44,6 +44,7 @@ services:
     cpus: "0.25"
     networks:
       - backend
+      - caddy_net
 
   celery-beat:
     container_name: playto-celery-beat
@@ -61,6 +62,7 @@ services:
     cpus: "0.15"
     networks:
       - backend
+      - caddy_net
 
 networks:
   caddy_net:
