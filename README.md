@@ -1,8 +1,8 @@
-# Playto Pay Payout Engine
+# Payout Engine
 
 Production-style hiring challenge implementation for a minimal merchant payout engine.
 
-Playto Pay helps Indian merchants collect international payments in USD and later pays merchants in INR. This project focuses only on the INR merchant payout engine: ledger balances, idempotent payout requests, legal payout state transitions, and background worker processing.
+Payment Engine helps Indian merchants collect international payments in USD and later pays merchants in INR. This project focuses only on the INR merchant payout engine: ledger balances, idempotent payout requests, legal payout state transitions, and background worker processing.
 
 ## Tech Stack
 
@@ -40,7 +40,7 @@ Backend:
 ```bash
 DEBUG=1
 SECRET_KEY=local-dev-secret
-DATABASE_URL=postgresql://playto:playto@postgres:5432/playto_payments
+DATABASE_URL=postgresql://payment_engine:payment_engine@postgres:5432/payment_engine
 CELERY_BROKER_URL=redis://redis:6379/0
 CELERY_RESULT_BACKEND=redis://redis:6379/0
 CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173

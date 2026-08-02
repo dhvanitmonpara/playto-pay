@@ -129,7 +129,7 @@ export function Dashboard() {
         <header className="rounded-[2rem] border border-slate-900 bg-[#d8ff72] p-6 shadow-[8px_8px_0_#0f172a]">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <p className="text-sm font-black uppercase tracking-[0.2em]">Playto Pay</p>
+              <p className="text-sm font-black uppercase tracking-[0.2em]">Payment Engine</p>
               <h1 className="mt-2 text-4xl font-black tracking-tight md:text-6xl">Merchant payout engine</h1>
               <p className="mt-2 max-w-2xl text-sm font-medium text-slate-700">
                 Demo dashboard backed by ledger-derived balances, idempotent payout creation, and a Celery processor.

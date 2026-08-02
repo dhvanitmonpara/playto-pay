@@ -1,6 +1,6 @@
 services:
   api:
-    container_name: playto-api
+    container_name: payment-api
     build:
       context: ./server
       dockerfile: Dockerfile
@@ -29,7 +29,7 @@ services:
       - backend
 
   celery:
-    container_name: playto-celery
+    container_name: payment-celery
     build:
       context: ./server
       dockerfile: Dockerfile
@@ -47,7 +47,7 @@ services:
       - caddy_net
 
   celery-beat:
-    container_name: playto-celery-beat
+    container_name: payment-celery-beat
     build:
       context: ./server
       dockerfile: Dockerfile

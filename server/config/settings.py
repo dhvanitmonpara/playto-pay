@@ -6,7 +6,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-local-playto-payments")
+SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-local-payment-engine")
 
 DEBUG = os.environ.get("DEBUG", "1") == "1"
 
